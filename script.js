@@ -70,8 +70,6 @@ const btnShowAllWorkouts = document.querySelector('.workout-btn__zoom');
 const btnShowUserPosition = document.querySelector('.workout-btn__me');
 const btnSortWorkouts = document.querySelector('.workout-btn__sort');
 const btnDeleteWorkout = document.querySelector('.workout-btn__delete');
-const textInfo = document.querySelector('.sidebar__info--text');
-
 
 class App {
   #map;
@@ -86,7 +84,6 @@ class App {
   #userCoords;
   #routes = [];
   #markers = [];
-  #data = [];
   #bool = false;
 
   constructor() {
@@ -100,12 +97,18 @@ class App {
     form.addEventListener('submit', this._newWorkout.bind(this));
     inputType.addEventListener('change', this._toggleElevationField);
     containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
+
+    // Edit current workout
+    // btnEditWorkout.addEventListener('click', this._editCurrentWorkout.bind(this));
     
     // Close workout editor
     document.addEventListener('keydown', this._closeEditForm.bind(this));
 
     // Delete all workouts
     btnDeleteAllWorkouts.addEventListener('click', this._deleteAllWorkouts.bind(this));
+
+    // Show cuurent user position on a map
+    btnShowUserPosition.addEventListener('click', this._scrollToUserPostion.bind(this));
 
     // Sort workouts
     btnSortWorkouts.addEventListener('click', this._setSortedWorkouts.bind(this));
@@ -115,9 +118,6 @@ class App {
 
     // Show all workouts on a map 
     btnShowAllWorkouts.addEventListener('click', this._showAllWorkouts.bind(this));
-
-      // Show cuurent user position on a map
-    btnShowUserPosition.addEventListener('click', this._scrollToUserPostion.bind(this));
 
   }
 
@@ -134,6 +134,7 @@ class App {
   _loadMap(position) {
     const { latitude } = position.coords;
     const { longitude } = position.coords;
+    // console.log(`https://www.google.pt/maps/@${latitude},${longitude}`);
 
     const coords = [latitude, longitude];
 
@@ -149,12 +150,6 @@ class App {
     // Handling clicks on map
     this.#map.on('click', this._showForm.bind(this));
 
-    (async () => {
-      const str = await this._renderInfoWorkout(this.#userCoords);
-      document.querySelector('.sidebar__info--text').textContent = str;
-    })()
-
-    // When map is loaded I decided just to leave render them in this function 
     this.#workouts.forEach(work => {
       this._renderWorkoutMarker(work);
     });
@@ -179,7 +174,7 @@ class App {
       fillOpacity: 0.2
      });
 
-     userCircle.addTo(this.#map);
+     userCircle.addTo(this.#map)
   }
 
   _showForm(mapE) {
@@ -250,6 +245,9 @@ class App {
     // Render workout on map as marker
     this._renderWorkoutMarker(workout);
 
+    // Render workout on list
+    this._renderWorkout(workout);
+
     // Hide form + clear input fields
     this._hideForm();
 
@@ -283,8 +281,6 @@ class App {
     let html = `
       <li class="workout workout--${workout.type}" data-id="${workout.id}">
         <h2 class="workout__title">${workout.description}</h2>
-        <h2 class="workout__title workout__info"></h2>
-        <h2 class="workout__title workout__info--weather"></h2>
         <div class="workout__details">
           <span class="workout__icon">${
             workout.type === 'running' ? '🏃‍♂️' : '🚴‍♀️'
@@ -346,13 +342,6 @@ class App {
 
     this._animateCurrentWorkout()
 
-     this.#data.push(this.#currentWorkoutData);
-
-      (async () => {
-        const data = await this._renderInfoWorkout(this.#currentWorkoutData.coords);
-        document.querySelector('.sidebar__info--text').textContent = data;
-      })() 
-
     const workout = this.#workouts.find(
       work => work.id === workoutEl.dataset.id 
     );
@@ -363,38 +352,32 @@ class App {
         duration: 1,
       },
     });
+
+    // using the public interface
+    // workout.click();
   }
 
   _setLocalStorage() {
     localStorage.setItem('workouts', JSON.stringify(this.#workouts));
-
-    document.querySelectorAll('.workout').forEach(work => containerWorkouts.removeChild(work));  
-    this._renderWorkouts(this.#workouts);
   }
 
-  async _getLocalStorage() {
+  _getLocalStorage() {
     const data = JSON.parse(localStorage.getItem('workouts'));
 
     if (!data) return;
 
     this.#workouts = data;
-    
-    document.querySelectorAll('.workout').forEach(work => containerWorkouts.removeChild(work));  
-    this._renderWorkouts(this.#workouts);
-  }
 
-  _renderWorkouts(arr){
-    arr.forEach(async work => {
-      await this._renderWorkout(work);
-      const place = await this._renderInfoWorkout(work.coords);
-      const element = [...document.querySelectorAll('.workout')].find(el => el.dataset.id === work.id);
-      const workoutInfo = [...element.children].find(child => child.classList.contains('workout__info'));
-      workoutInfo.textContent = place;
-      const weather = await this._getCurrentWeather(work.coords);
-      const weatherInfo = [...element.children].find(child => child.classList.contains('workout__info--weather'));
-      weatherInfo.innerHTML = weather.split(',').join('<br>');
+    this.#workouts.forEach(work => {
+      this._renderWorkout(work);
     });
   }
+
+  // reset() {
+  //   localStorage.removeItem('workouts');
+  //   location.reload();
+  // }
+
 
   /*
      Please do not represent as your own resolve ©️Copyright by Max Spizhovyi
@@ -411,6 +394,7 @@ class App {
 
   // Add circle to the current workout on a map
   _animateCircle(){
+
    const arrIncludes = (arr) => arr.every(circleEl => circleEl.id !== circle.id);
 
     const circle = L.circle(this.#currentWorkoutData.coords, {
@@ -433,6 +417,7 @@ class App {
 
   // Add route to the current map 
    _animateLineRoute(){
+
    const checkRoute = arr => arr.every(line => line.id !== route.id);
 
     const route = L.Routing.control({
@@ -465,7 +450,7 @@ class App {
  
   // Delete All Workouts
   _deleteAllWorkouts(){
-    textInfo.textContent = ''
+
     /* I decided to remove all elements from the containerWorkouts and also from the map instead just reloading page, 
     and implemented if we even reload the page the array of all workouts will clear and set to the localStorage (-v-') */
 
@@ -475,12 +460,6 @@ class App {
 
     this.#workouts = [];
     this._setLocalStorage();
-    this._resetName();
-  }
-
-  async _resetName(){
-      const str = await this._renderInfoWorkout(this.#userCoords);
-      document.querySelector('.sidebar__info--text').textContent = str;
   }
 
   _removeAnimation(){
@@ -497,26 +476,26 @@ class App {
    _showAllWorkouts(){
     if(this.#markers.length > 0)
         this.#map.fitBounds(L.featureGroup(this.#markers).getBounds());
-    }
+  }
 
    // Go to the cuurent user position
-   _scrollToUserPostion(e){
+   _scrollToUserPostion(){
     this.#map.setView(this.#userCoords, this.#mapZoomLevel, {animate:true, pan:{duration:1}});
-    this._resetName();
    }
 
    // Set sorted workouts
    _sortWorkouts(){
     document.querySelectorAll('.workout').forEach(work => containerWorkouts.removeChild(work));  
     
-    const sorted = this.#bool ? this.#workouts.slice().sort((a, b) => a.distance  -  b.distance) : this.#workouts.slice().sort((a, b) => b.distance  -  a.distance);
+    const sorted = this.#bool ? this.#workouts.slice().sort((a, b) => a.distance  -  b.distance) : this.#workouts;
 
-    document.querySelectorAll('.workout').forEach(work => containerWorkouts.removeChild(work));  
-     this._renderWorkouts(sorted);
+     sorted.forEach(work => {
+      this._renderWorkout(work);
+     })
    }
 
    _setSortedWorkouts(){
-    textInfo.textContent = ''
+     
     // ---We need to remove all circles and route lines from the map
      this.#routes.forEach(line => line.remove());
      this.#circles.forEach(circle => this.#map.removeLayer(circle));
@@ -531,11 +510,15 @@ class App {
      this.#bool = !this.#bool;
    }
 
+   // Edit current workout
+   _editCurrentWorkout(){
+      if(!this.#currentWorkoutElement)return;
+      console.log('Hello')
+   }
+
    // Delete current workout
    _deleteCurrentWorkout(){
     if(this.#currentWorkoutIndex === undefined)return;
-    
-   this._resetName()
 
     // ---I removed a current workout from the container instead just reloading the page
     containerWorkouts.removeChild(this.#currentWorkoutElement);
@@ -552,81 +535,6 @@ class App {
     this._setLocalStorage();
    }  
 
-
-   async _renderInfoWorkout(coords){
-        const [lat, lng] = coords;
-        const apiKey = '9b5bfc5ba80d4782a9b4863be898e37f';
-        try{
-            const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${apiKey}`);
-            if(!response.ok){
-               document.querySelector('.modal').style.display='block';
-               throw new Error('Issues with coords');
-            }
-
-            const data = await response.json(); 
-            const [results] = data.results;
-            
-            const city = results.components.city ?? results.components.state ?? results.components.region;
-            const country = results.components.country;
-            const flag = results.annotations.flag;
-            
-            return `${flag}${city}, ${country}`;
-        } catch(err){
-          throw err;
-        }
-   }
-
-   async _getCurrentWeather(coords) {
-    const apiKey = '2fcab31b844cf6e2f39455e9fe066105';
-    try {
-      const [lat, lng] = coords;
-      const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=9b5bfc5ba80d4782a9b4863be898e37f`);
-      if(!response.ok)
-         throw new Error('Issues with coords');
-      const data = await response.json(); 
-      const [results] = data.results;
-      const city = results.components.city ?? results.components.state;
-      const response2 = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`);
-     
-      if (!response.ok) 
-        throw new Error('Issues fetching weather data');
-      
-      const data2 = await response2.json();
-      const weatherDescription = data2.weather[0].description;
-      const temperature = data2.main.temp;
-      const windSpeed = data2.wind.speed;
-      const iconCode = data2.weather[0].icon;
-      
-      const weatherEmoji = {
-        '01d': '☀️', // clear sky (day)
-        '01n': '🌙', // clear sky (night)
-        '02d': '🌤️', // few clouds (day)
-        '02n': '🌃', // few clouds (night)
-        '03d': '🌥️', // scattered clouds (day)
-        '03n': '🌥️', // scattered clouds (night)
-        '04d': '☁️', // broken clouds (day)
-        '04n': '☁️', // broken clouds (night)
-        '09d': '🌦️', // shower rain (day)
-        '09n': '🌧️', // shower rain (night)
-        '10d': '🌧️', // rain (day)
-        '10n': '🌧️', // rain (night)
-        '11d': '⛈️', // thunderstorm (day)
-        '11n': '⛈️', // thunderstorm (night)
-        '13d': '🌨️', // snow (day)
-        '13n': '🌨️', // snow (night)
-        '50d': '🌫️', // mist (day)
-        '50n': '🌫️', // mist (night)
-      };
-      
-      return `Weather in ${city}: ${weatherEmoji[iconCode]} ${weatherDescription}, 🌡️Temperature: ${temperature}°C, 💨Wind Speed: ${windSpeed} m/s`;
-    } catch (err) {
-      return `Curren\'t api doesn't support that place weather data`
-    }
-  }
 }
 
 const app = new App();
-
-
-
-
