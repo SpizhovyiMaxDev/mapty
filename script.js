@@ -559,7 +559,7 @@ class App {
         try{
             const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${apiKey}`);
             if(!response.ok){
-               document.querySelector('.modal').style.display='block';
+              //  document.querySelector('.modal').style.display='block';
                throw new Error('Issues with coords');
             }
 
