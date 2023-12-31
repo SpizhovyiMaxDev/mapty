@@ -553,6 +553,8 @@ class App {
    }  
 
 
+  // Unfortunatley my limit of requests is finished.
+
    async _renderInfoWorkout(coords){
         const [lat, lng] = coords;
         const apiKey = '9b5bfc5ba80d4782a9b4863be898e37f';
